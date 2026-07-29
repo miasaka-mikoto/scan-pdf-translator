@@ -1,0 +1,6 @@
+gradio>=5
+pypdf>=5
+reportlab>=4
+svglib>=2
+Pillow>=10
+opencv-python-headless>=4.10
