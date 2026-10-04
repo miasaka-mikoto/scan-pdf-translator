@@ -228,9 +228,32 @@ def load_saved_api_key_for_ui() -> tuple[str, str]:
     return key, status
 
 
+OUTPUT_LABEL_MAP = {
+    "双语纵向对照（默认）": "bilingual_vertical",
+    "双语左右并排": "bilingual_side_by_side",
+    "纯中文": "chinese_only",
+}
+OUTPUT_VALUES = set(OUTPUT_LABEL_MAP.values())
+
+
+def normalize_output_selection(output_selection) -> list[str]:
+    """Normalize UI/API output selection to stable internal values."""
+    selected = output_selection if isinstance(output_selection, (list, tuple)) else [output_selection]
+    normalized: list[str] = []
+    for item in selected:
+        if item in OUTPUT_VALUES:
+            value = item
+        else:
+            value = OUTPUT_LABEL_MAP.get(item)
+        if value and value not in normalized:
+            normalized.append(value)
+    if not normalized:
+        raise ValueError("至少选择一个输出版本。")
+    return normalized
+
+
 def start_job(pdf, api_key, pages, source_mode, quality, output_labels, formula_label, figure_label, glossary, resume_job_id, auto_repair_missing, repair_pages):
-    output_map = {"双语纵向对照（默认）": "bilingual_vertical", "双语左右并排": "bilingual_side_by_side", "纯中文": "chinese_only"}
-    outputs = [output_map[label] for label in output_labels]
+    outputs = normalize_output_selection(output_labels)
     formula = "mathjax" if formula_label.startswith("MathJax") else "source_crop"
     figure = "vector_trace" if figure_label.startswith("SVG") else ("preserve" if figure_label.startswith("确定性") else "source_crop")
     job_id = JOBS.start(pdf, api_key, pages, source_mode, quality, outputs, formula, figure, glossary, resume_job_id, auto_repair_missing, repair_pages)
