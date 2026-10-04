@@ -20,6 +20,7 @@ from rich_renderer import (
     create_reconstructed_page,
     create_side_by_side_pdf,
     create_vertical_dual_pdf,
+    page_display_size,
     parse_grounded_markdown,
     translate_regions,
 )
@@ -334,8 +335,7 @@ def run_cloud_job(spec: JobSpec, store: JobStore, output_dir: Path) -> tuple[lis
             create_reconstructed_page(
                 image_path,
                 regions,
-                float(original.mediabox.width),
-                float(original.mediabox.height),
+                *page_display_size(original),
                 rebuilt_path,
                 "中文图文重构页",
                 formula_strategy=spec.formula_strategy,
@@ -473,7 +473,7 @@ def run_local_job(spec: JobSpec, store: JobStore, output_dir: Path) -> tuple[lis
         rebuilt_path = page_dir / "rebuilt.pdf"
         if not rebuilt_path.exists():
             original = reader.pages[page_number - 1]
-            create_reconstructed_page(image_path, regions, float(original.mediabox.width), float(original.mediabox.height), rebuilt_path, "中文图文重构页", spec.formula_strategy, spec.figure_strategy, page_dir / "assets")
+            create_reconstructed_page(image_path, regions, *page_display_size(original), rebuilt_path, "中文图文重构页", spec.formula_strategy, spec.figure_strategy, page_dir / "assets")
             _write_json(region_path, _json_regions(regions))
         qa = _qa_page(regions); qa["page"] = page_number; qa_pages.append(qa); rebuilt.append(rebuilt_path)
         _write_json(page_dir / "qa.json", qa); store.save_page_state(page_number, stage="completed", qa=qa, rebuilt=str(rebuilt_path))

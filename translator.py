@@ -265,9 +265,11 @@ def render_page(input_pdf: Path, page_number: int, output_jpg: Path) -> None:
     poppler = _poppler_dir()
     executable = poppler / "pdftoppm.exe"
     if not executable.exists():
-        executable = Path(shutil.which("pdftoppm") or "")
-    if not executable.exists():
-        raise FileNotFoundError("找不到 pdftoppm；请设置 POPPLER_BIN。")
+        discovered = shutil.which("pdftoppm")
+        executable = Path(discovered) if discovered else None
+    if executable is None or not executable.is_file():
+        _render_page_with_pymupdf(input_pdf, page_number, output_jpg)
+        return
     prefix = output_jpg.with_suffix("")
     env = os.environ.copy()
     env["PATH"] = str(poppler) + os.pathsep + env.get("PATH", "")
@@ -292,6 +294,32 @@ def render_page(input_pdf: Path, page_number: int, output_jpg: Path) -> None:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
     )
+
+
+def _render_page_with_pymupdf(input_pdf: Path, page_number: int, output_jpg: Path) -> None:
+    """Rasterize one PDF page when Poppler is unavailable (for Linux containers)."""
+    try:
+        import fitz
+        from PIL import Image
+    except ImportError as exc:
+        raise FileNotFoundError(
+            "找不到 pdftoppm，且 PyMuPDF 后备渲染器未安装。"
+        ) from exc
+
+    with fitz.open(input_pdf) as document:
+        if page_number < 1 or page_number > document.page_count:
+            raise IndexError(f"PDF 页码越界: {page_number}/{document.page_count}")
+        page = document.load_page(page_number - 1)
+        page_rect = page.rect
+        longest_edge = max(float(page_rect.width), float(page_rect.height), 1.0)
+        scale = 2000.0 / longest_edge
+        pixmap = page.get_pixmap(
+            matrix=fitz.Matrix(scale, scale),
+            colorspace=fitz.csRGB,
+            alpha=False,
+        )
+        image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
+        image.save(output_jpg, format="JPEG", quality=90, optimize=True)
 
 
 def markdown_blocks(markdown: str) -> list[tuple[str, str]]:
