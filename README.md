@@ -11,6 +11,9 @@
 - 支持全文、连续页范围和不连续页码。
 - 输出双语纵向对照、双语左右并排或纯中文 PDF。
 - 云端模式使用硅基流动进行 OCR、OCR 复核和翻译。
+- 质量档「快速/均衡」：DeepSeek-OCR + DeepSeek-V4-Flash。
+- 质量档「最高质量」：DeepSeek-OCR + 硅基流动视觉模型复核 + DeepSeek-V4-Pro。
+- 模型来源「硅基流动免费 API」：DeepSeek-OCR + Qwen3-8B。
 - 本地扩展使用 PaddleOCR-VL 与 Ollama，文档内容无需上传。
 - MathJax SVG 重绘公式，失败时回退到原始公式裁图。
 - 图表采用确定性矢量描摹或高清原图回退，不用生成式图像篡改技术图形。
@@ -106,6 +109,10 @@ assets/                原创明暗主题背景
 python -m compileall -q .
 python -c "from pipeline_v2 import _all_pages; assert _all_pages('1,3-4', 5) == [1, 3, 4]"
 ```
+
+## 合并说明
+
+本项目已合并原 `pdf-translator-mvp` 仓库的改进：PyMuPDF 兜底页面渲染（无 Poppler 的 Linux 环境可用）、PDF `/Rotate` 旋转页面的可视尺寸修正与方向展平、自带 Noto Sans SC 中文字体（`PDF_TRANSLATOR_CJK_FONT` 可覆盖）、左右并排输出的居中对齐，以及输出版本选择的规范化。`pdf-translator-mvp` 已归档，不再维护。
 
 ## 许可证
 

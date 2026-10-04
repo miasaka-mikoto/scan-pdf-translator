@@ -1,26 +1,37 @@
+# Secrets and local configuration
+.env
+.env.*
+local-mode.json
+*.dpapi
+*credentials*
+
+# Python and Node environments
 .venv*/
+venv/
 __pycache__/
 *.py[cod]
 node_modules/
 
-# User documents, generated PDFs and resumable job data
+# Runtime jobs, caches, outputs and user documents
 runs*/
+test_runs/
 outputs/
 downloads/
+job-store-sequence-test/
+status-merge-test/
 *.pdf
+*.zip
 *.log
 *.out
 *.err
 
-# Local model/runtime configuration and credentials
-local-mode.json
-*.dpapi
-.env
-.env.*
-!.env.example
+# Local installation state
+local-bootstrap/install.log
+local-bootstrap/hardware-report.json
+local-bootstrap/installed-checksums.json
 
-# Editors and operating systems
-.idea/
-.vscode/
+# Editor and OS files
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
