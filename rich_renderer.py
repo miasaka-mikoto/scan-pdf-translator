@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +23,23 @@ from translator import _message_text, _post_json, display_text
 CJK_FONT = "EmbeddedCJK"
 
 
+def page_display_size(page) -> tuple[float, float]:
+    """Return the visible page size after applying the PDF /Rotate value."""
+    width = float(page.mediabox.width)
+    height = float(page.mediabox.height)
+    rotation = int(page.get("/Rotate", 0) or 0) % 360
+    if rotation in {90, 270}:
+        return height, width
+    return width, height
+
+
+def _flatten_page_rotation(page):
+    """Bake /Rotate into page content so merged pages share one orientation."""
+    if int(page.get("/Rotate", 0) or 0) % 360:
+        page.transfer_rotation_to_content()
+    return page
+
+
 def _ensure_cjk_font() -> str:
     """Register an embedded TrueType CJK font for browser PDF viewers."""
     try:
@@ -29,15 +47,22 @@ def _ensure_cjk_font() -> str:
         return CJK_FONT
     except KeyError:
         pass
+    configured = os.environ.get("PDF_TRANSLATOR_CJK_FONT", "").strip()
     candidates = [
+        Path(configured) if configured else None,
+        Path(__file__).resolve().parent / "assets" / "fonts" / "NotoSansSC-Variable.ttf",
+        Path("/usr/share/fonts/truetype/noto/NotoSansSC-Regular.ttf"),
         Path(r"C:\Windows\Fonts\simhei.ttf"),
         Path(r"C:\Windows\Fonts\Deng.ttf"),
     ]
     for font_path in candidates:
-        if font_path.exists():
+        if font_path is not None and font_path.is_file():
             pdfmetrics.registerFont(TTFont(CJK_FONT, str(font_path)))
             return CJK_FONT
-    raise FileNotFoundError("找不到可嵌入的中文 TrueType 字体（simhei.ttf/Deng.ttf）")
+    raise FileNotFoundError(
+        "找不到可嵌入的中文 TrueType 字体；"
+        "请随程序提供 NotoSansSC-Variable.ttf 或设置 PDF_TRANSLATOR_CJK_FONT。"
+    )
 
 
 @dataclass
@@ -321,8 +346,8 @@ def create_vertical_dual_pdf(
     reconstructed_pdf: Path,
     output_pdf: Path,
 ) -> None:
-    source_page = PdfReader(str(source_pdf)).pages[page_number - 1]
-    rebuilt_page = PdfReader(str(reconstructed_pdf)).pages[0]
+    source_page = _flatten_page_rotation(PdfReader(str(source_pdf)).pages[page_number - 1])
+    rebuilt_page = _flatten_page_rotation(PdfReader(str(reconstructed_pdf)).pages[0])
     width = float(source_page.mediabox.width)
     height = float(source_page.mediabox.height)
     writer = PdfWriter()
@@ -349,12 +374,20 @@ def create_side_by_side_pdf(source_pdf: Path, pages: list[int], rebuilt_pages: l
     source = PdfReader(str(source_pdf))
     writer = PdfWriter()
     for page_number, rebuilt in zip(pages, rebuilt_pages, strict=True):
-        original = source.pages[page_number - 1]
-        translated = PdfReader(str(rebuilt)).pages[0]
+        original = _flatten_page_rotation(source.pages[page_number - 1])
+        translated = _flatten_page_rotation(PdfReader(str(rebuilt)).pages[0])
         width, height = float(original.mediabox.width), float(original.mediabox.height)
-        page = writer.add_blank_page(width=width * 2, height=height)
-        page.merge_page(original)
-        page.merge_transformed_page(translated, Transformation().translate(tx=width, ty=0))
+        translated_width = float(translated.mediabox.width)
+        translated_height = float(translated.mediabox.height)
+        output_height = max(height, translated_height)
+        original_y = (output_height - height) / 2
+        translated_y = (output_height - translated_height) / 2
+        page = writer.add_blank_page(width=width + translated_width, height=output_height)
+        page.merge_transformed_page(original, Transformation().translate(tx=0, ty=original_y))
+        page.merge_transformed_page(
+            translated,
+            Transformation().translate(tx=width, ty=translated_y),
+        )
         writer.add_outline_item(f"原 PDF 第 {page_number} 页", len(writer.pages) - 1)
     output_pdf.parent.mkdir(parents=True, exist_ok=True)
     with output_pdf.open("wb") as stream:
