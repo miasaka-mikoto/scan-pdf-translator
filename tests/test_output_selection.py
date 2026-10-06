@@ -17,7 +17,7 @@ def _page(path: Path, width: float = 300, height: float = 500) -> None:
     pdf.save()
 
 
-def run() -> None:
+def test_output_selection() -> None:
     assert normalize_output_selection("bilingual_vertical") == ["bilingual_vertical"]
     assert normalize_output_selection("bilingual_side_by_side") == ["bilingual_side_by_side"]
     assert normalize_output_selection("chinese_only") == ["chinese_only"]
@@ -49,4 +49,4 @@ def run() -> None:
 
 
 if __name__ == "__main__":
-    run()
+    test_output_selection()
